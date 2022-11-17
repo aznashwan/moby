@@ -125,6 +125,13 @@ func (mbv manifestsByVersion) Swap(i, j int) {
 func checkImageCompatibility(imageOS, imageOSVersion string) error {
 	if imageOS == "windows" {
 		hostOSV := osversion.Get()
+		// NOTE: RS5 no longer carries extra requirements for image build number compatibility
+		// when running later images under Hyper-V, so we allow this check to pass and only error
+		// later if the image is attempted to be run under Process isolation.
+		if hostOSV.Build >= osversion.RS5 {
+			return nil
+		}
+
 		splitImageOSVersion := strings.Split(imageOSVersion, ".") // eg 10.0.16299.nnnn
 		if len(splitImageOSVersion) >= 3 {
 			if imageOSBuild, err := strconv.Atoi(splitImageOSVersion[2]); err == nil {
@@ -132,8 +139,12 @@ func checkImageCompatibility(imageOS, imageOSVersion string) error {
 					errMsg := fmt.Sprintf("a Windows version %s.%s.%s-based image is incompatible with a %s host", splitImageOSVersion[0], splitImageOSVersion[1], splitImageOSVersion[2], hostOSV.ToString())
 					logrus.Debugf(errMsg)
 					return errors.New(errMsg)
+				} else {
+					logrus.Debugf("image version %s.%s.%s is compatible with host version %s", splitImageOSVersion[0], splitImageOSVersion[1], splitImageOSVersion[2], hostOSV.ToString())
 				}
 			}
+		} else {
+			logrus.Warnf("failed to split and parse Windows image version %q (was expecting format like '10.0.16299.nnnn')", imageOSVersion)
 		}
 	}
 	return nil

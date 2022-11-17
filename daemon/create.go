@@ -67,8 +67,9 @@ func (daemon *Daemon) containerCreate(ctx context.Context, opts createOpts) (con
 		return containertypes.CreateResponse{Warnings: warnings}, errdefs.InvalidParameter(err)
 	}
 
+	var img *image.Image
 	if opts.params.Platform == nil && opts.params.Config.Image != "" {
-		img, err := daemon.imageService.GetImage(ctx, opts.params.Config.Image, imagetypes.GetImageOpts{Platform: opts.params.Platform})
+		img, err = daemon.imageService.GetImage(ctx, opts.params.Config.Image, imagetypes.GetImageOpts{Platform: opts.params.Platform})
 		if err != nil {
 			return containertypes.CreateResponse{}, err
 		}
@@ -95,6 +96,11 @@ func (daemon *Daemon) containerCreate(ctx context.Context, opts createOpts) (con
 		opts.params.HostConfig = &containertypes.HostConfig{}
 	}
 	err = daemon.adaptContainerSettings(opts.params.HostConfig, opts.params.AdjustCPUShares)
+	if err != nil {
+		return containertypes.CreateResponse{Warnings: warnings}, errdefs.InvalidParameter(err)
+	}
+
+	err = daemon.checkImageIsolationCompatiblity(opts.params.HostConfig, img)
 	if err != nil {
 		return containertypes.CreateResponse{Warnings: warnings}, errdefs.InvalidParameter(err)
 	}
