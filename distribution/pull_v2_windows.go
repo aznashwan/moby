@@ -134,8 +134,8 @@ func checkImageCompatibility(imageOS, imageOSVersion string) error {
 
 		splitImageOSVersion := strings.Split(imageOSVersion, ".") // eg 10.0.16299.nnnn
 		if len(splitImageOSVersion) >= 3 {
-			if imageOSBuild, err := strconv.Atoi(splitImageOSVersion[2]); err == nil {
-				if imageOSBuild > int(hostOSV.Build) {
+			if imageOSBuild, err := strconv.ParseUint(splitImageOSVersion[2], 10, 16); err == nil {
+				if uint16(imageOSBuild) > hostOSV.Build {
 					errMsg := fmt.Sprintf("a Windows version %s.%s.%s-based image is incompatible with a %s host", splitImageOSVersion[0], splitImageOSVersion[1], splitImageOSVersion[2], hostOSV.ToString())
 					logrus.Debugf(errMsg)
 					return errors.New(errMsg)

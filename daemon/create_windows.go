@@ -108,26 +108,25 @@ func (daemon *Daemon) checkImageIsolationCompatiblity(hostConfig *containertypes
 // https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/version-compatibility?tabs=windows-server-2016%2Cwindows-10#windows-server-host-os-compatibility
 func checkImageCompatibilityForHostIsolation(hostOSV osversion.OSVersion, imageOSVersion string, isHyperV bool) error {
 	var err error
-	var imageOSBuild int
+	var imageOSBuildU64 uint64
 	splitImageOSVersion := strings.Split(imageOSVersion, ".") // eg 10.0.16299.nnnn
 	if len(splitImageOSVersion) >= 3 {
-		if imageOSBuild, err = strconv.Atoi(splitImageOSVersion[2]); err == nil {
-			logrus.Debugf("parsed Windows build number %d from image OS version %s", imageOSBuild, imageOSVersion)
-		} else if imageOSBuild < 0 {
-			return fmt.Errorf("Windows image build must be a positive integer, got %q from image version %q", splitImageOSVersion[2], imageOSVersion)
+		if imageOSBuildU64, err = strconv.ParseUint(splitImageOSVersion[2], 10, 16); err == nil {
+			logrus.Debugf("parsed Windows build number %d from image OS version %s", imageOSBuildU64, imageOSVersion)
 		} else {
-			return fmt.Errorf("failed to atoi() Windows image build %q from image version %q", splitImageOSVersion[2], imageOSVersion)
+			return fmt.Errorf("failed to ParseUint() Windows image build %q from image version %q: %s", splitImageOSVersion[2], imageOSVersion, err)
 		}
 	} else {
 		return fmt.Errorf("failed to split and parse Windows image version %q (was expecting format like '10.0.16299.nnnn')", imageOSVersion)
 	}
 	truncatedImageOSVersion := fmt.Sprintf("%s.%s.%s", splitImageOSVersion[0], splitImageOSVersion[1], splitImageOSVersion[2])
 
-	if imageOSBuild == int(hostOSV.Build) {
+	imageOSBuild := uint16(imageOSBuildU64)
+	if imageOSBuild == hostOSV.Build {
 		// same image version should run on identically-versioned host regardless of isolation:
 		logrus.Debugf("image version %s is trivially compatible with host version %s", truncatedImageOSVersion, hostOSV.ToString())
 		return nil
-	} else if imageOSBuild < int(hostOSV.Build) {
+	} else if imageOSBuild < hostOSV.Build {
 		// images older than the host must be run under Hyper-V:
 		if isHyperV {
 			logrus.Debugf("older image version %s is compatible with host version %s under Hyper-V", truncatedImageOSVersion, hostOSV.ToString())
